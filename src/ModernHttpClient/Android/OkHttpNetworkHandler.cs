@@ -10,7 +10,6 @@ using Javax.Net.Ssl;
 using System.Text.RegularExpressions;
 using Java.IO;
 using System.Security.Cryptography.X509Certificates;
-using System.Globalization;
 using Android.OS;
 
 namespace ModernHttpClient
@@ -38,6 +37,9 @@ namespace ModernHttpClient
 
             if (customSSLVerification) client.SetHostnameVerifier(new HostnameVerifier());
             noCacheCacheControl = (new CacheControl.Builder()).NoCache().Build();
+
+			if ((int)Build.VERSION.SdkInt < (int)BuildVersionCodes.Lollipop)
+				client.SetSslSocketFactory (new TlsSSLSocketFactory ());
         }
 
         public void RegisterForProgress(HttpRequestMessage request, ProgressDelegate callback)
@@ -82,16 +84,21 @@ namespace ModernHttpClient
             var java_uri = request.RequestUri.GetComponents(UriComponents.AbsoluteUri, UriFormat.UriEscaped);
             var url = new Java.Net.URL(java_uri);
 
-            var body = default(RequestBody);
-            if (request.Content != null) {
-                var bytes = await request.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+			var body = default (RequestBody);
 
-                var contentType = "text/plain";
-                if (request.Content.Headers.ContentType != null) {
-                    contentType = String.Join(" ", request.Content.Headers.GetValues("Content-Type"));
-                }
-                body = RequestBody.Create(MediaType.Parse(contentType), bytes);
-            }
+			// Hack due to OkHttp bug -> https://github.com/square/retrofit/issues/854
+			if (request.Method == HttpMethod.Post) {
+				if (request.Content != null) {
+					var bytes = await request.Content.ReadAsByteArrayAsync ().ConfigureAwait (false);
+
+					var contentType = "text/plain";
+					if (request.Content.Headers.ContentType != null) {
+						contentType = String.Join (" ", request.Content.Headers.GetValues ("Content-Type"));
+					}
+					body = RequestBody.Create (MediaType.Parse (contentType), bytes);
+				} else
+					body = RequestBody.Create (null, new byte [0]);
+			}
 
             var builder = new Request.Builder()
                 .Method(request.Method.Method.ToUpperInvariant(), body)
@@ -129,7 +136,7 @@ namespace ModernHttpClient
                 }
             } catch (IOException ex) {
                 if (ex.Message.ToLowerInvariant().Contains("canceled")) {
-                    throw new OperationCanceledException();
+                    throw new System.OperationCanceledException ();
                 }
 
                 throw;
@@ -270,13 +277,7 @@ namespace ModernHttpClient
         /// <param name="session"></param>
         static bool verifyClientCiphers(string hostname, ISSLSession session)
         {
-            var callback = ServicePointManager.ClientCipherSuitesCallback;
-            if (callback == null) return true;
-
-            var protocol = session.Protocol.StartsWith("SSL", StringComparison.InvariantCulture) ? SecurityProtocolType.Ssl3 : SecurityProtocolType.Tls;
-            var acceptedCiphers = callback(protocol, new[] { session.CipherSuite });
-
-            return acceptedCiphers.Contains(session.CipherSuite);
+			return true;
         }
     }
 }
