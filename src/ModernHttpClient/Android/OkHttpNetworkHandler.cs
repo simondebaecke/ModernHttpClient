@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using Java.IO;
 using System.Security.Cryptography.X509Certificates;
 using Android.OS;
+using Java.Util.Concurrent;
 
 namespace ModernHttpClient
 {
@@ -117,6 +118,10 @@ namespace ModernHttpClient
 
             cancellationToken.ThrowIfCancellationRequested();
 
+			client.SetConnectTimeout (60, TimeUnit.Seconds);
+			client.SetReadTimeout (60, TimeUnit.Seconds);
+			client.SetWriteTimeout (60, TimeUnit.Seconds);
+
             var rq = builder.Build();
             var call = client.NewCall(rq);
 
@@ -134,12 +139,8 @@ namespace ModernHttpClient
                         throw new CaptiveNetworkException(new Uri(java_uri), new Uri(newUri.ToString()));
                     }
                 }
-            } catch (IOException ex) {
-                if (ex.Message.ToLowerInvariant().Contains("canceled")) {
-                    throw new System.OperationCanceledException ();
-                }
-
-                throw;
+            } catch (IOException) {
+                throw new System.OperationCanceledException ();
             }
 
             var respBody = resp.Body();
