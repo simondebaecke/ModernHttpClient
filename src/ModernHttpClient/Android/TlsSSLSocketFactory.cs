@@ -47,10 +47,11 @@ namespace ModernHttpClient
 			return socket;
 		}
 
-		protected override void Dispose (bool disposing) {
-			factory.Dispose ();
-			base.Dispose (disposing);
-		}
+		// Prevent exception "Cannot access a disposed object. Object name: 'Javax.Net.Ssl.SSLSocketFactoryInvoker'."
+		//protected override void Dispose (bool disposing) {
+		//	factory.Dispose ();
+		//	base.Dispose (disposing);
+		//}
 
 		public override Java.Net.Socket CreateSocket () {
 			SSLSocket socket = (SSLSocket)factory.CreateSocket ();
